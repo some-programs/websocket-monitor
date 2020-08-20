@@ -137,6 +137,7 @@ func main() {
 						log.Println("TEST UNSUCCESSFUL")
 					}
 					// spew.Dump(wr)
+					// data, err := yaml.Marshal(&wr)
 					data, err := json.MarshalIndent(&wr, "", "  ")
 					if err != nil {
 						log.Fatal(err)

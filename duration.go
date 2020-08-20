@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"time"
-
-	"gopkg.in/yaml.v1"
 )
 
 type Duration time.Duration
@@ -36,7 +34,6 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 }
 
 func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
-
 	var v interface{}
 	if err := unmarshal(&v); err != nil {
 		return err
@@ -59,6 +56,5 @@ func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
 }
 
 func (d Duration) MarshalYAML() (interface{}, error) {
-	return yaml.Marshal(time.Duration(d).String())
-
+	return time.Duration(d).String(), nil
 }
