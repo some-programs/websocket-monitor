@@ -255,10 +255,12 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 		}
 	} else {
 		for wr.MessagesReceived < wt.ExpectMessages {
+
 			if err := c.SetReadDeadline(time.Now().Add(wt.MessageReadTimeout.D())); err != nil {
 				addLog(LogSetReadDeadlineFailed, Log{Err: err})
 				return wr, err
 			}
+			addLog(LogReadMessage)
 			msgType, data, err := c.ReadMessage()
 			if err != nil {
 
