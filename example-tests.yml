@@ -1,0 +1,15 @@
+- name: wss-org-read-timeout-fail
+  url: wss://echo.websocket.org
+  expect_server_close: 1000
+  handshake_timeout: 1m
+  sleep: 1s
+  message_read_timeout: 500ms
+
+- name: wss-org-write-read-ok
+  url: wss://echo.websocket.org
+  message_write_timeout: 5s
+  message_read_timeout: 5s
+  handshake_timeout: 1m
+  sleep: 1s
+  send_text_message: hello
+  expect_messages: 1
