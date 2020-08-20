@@ -90,7 +90,6 @@ type TestResult struct {
 	Test             Test               `json:"test"` // The associated with the result
 	StartedAt        time.Time          `json:"started_at"`
 	ConnectOK        bool               `json:"connect_ok"`        // true if connect succeeds
-	ConnectDuration  Duration           `json:"connect_duration"`  // set regardless if connect fails or not
 	MessagesReceived int                `json:"messages_received"` // number of messages received
 	Messages         []WebsocketMessage `json:"messages"`
 	ServerCloseCode  int                `json:"server_close_code"`
@@ -174,8 +173,6 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 	addLog(LogConnect)
 	log.Printf("%s Connecting to %s", wr.ID, wt.URL)
 	c, _, err := dialer.Dial(wt.URL, nil)
-	wr.ConnectDuration = Duration(time.Now().Sub(start))
-	log.Println(wr.ID, "connect duration", wr.ConnectDuration)
 	if err != nil {
 		addLog(LogConnectFail, Log{Err: err})
 		log.Println(wr.ID, "Cannot connect to websocket")
