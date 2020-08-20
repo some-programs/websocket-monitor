@@ -58,3 +58,7 @@ func (d *Duration) UnmarshalYAML(unmarshal func(interface{}) error) error {
 func (d Duration) MarshalYAML() (interface{}, error) {
 	return time.Duration(d).String(), nil
 }
+
+func (d Duration) D() time.Duration {
+	return time.Duration(d)
+}

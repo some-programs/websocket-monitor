@@ -143,7 +143,7 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 	}
 	dialer := &websocket.Dialer{
 		Proxy:            http.ProxyFromEnvironment,
-		HandshakeTimeout: time.Duration(wt.HandshakeTimeout),
+		HandshakeTimeout: wt.HandshakeTimeout.D(),
 	}
 	start := time.Now()
 	timestamp := func() Duration {
@@ -193,7 +193,7 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 	if wt.SendTextMessage != "" {
 		var err error
 		addLog(LogWriteMessage)
-		err = c.SetWriteDeadline(time.Now().Add(time.Duration(wt.MessageWriteTimeout)))
+		err = c.SetWriteDeadline(time.Now().Add(wt.MessageWriteTimeout.D()))
 		if err != nil {
 			addLog(LogSetWriteDeadlineFailed, Log{Err: err})
 			return wr, err
@@ -214,7 +214,7 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 	}
 
 	if wt.ExpectMessages < 1 {
-		if err := c.SetReadDeadline(time.Now().Add(time.Duration(wt.MessageReadTimeout))); err != nil {
+		if err := c.SetReadDeadline(time.Now().Add(wt.MessageReadTimeout.D())); err != nil {
 			addLog(LogSetReadDeadlineFailed, Log{Err: err})
 			return wr, err
 		}
@@ -258,7 +258,7 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 		}
 	} else {
 		for wr.MessagesReceived < wt.ExpectMessages {
-			if err := c.SetReadDeadline(time.Now().Add(time.Duration(wt.MessageReadTimeout))); err != nil {
+			if err := c.SetReadDeadline(time.Now().Add(wt.MessageReadTimeout.D())); err != nil {
 				addLog(LogSetReadDeadlineFailed, Log{Err: err})
 				return wr, err
 			}
