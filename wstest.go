@@ -58,6 +58,7 @@ type WebsocketMessage struct {
 type Log struct {
 	CreatedAt Duration    `json:"created_at,omitempty"`
 	Kind      string      `json:"kind,omitempty"`
+	Step      string      `json:"step,omitempty"`
 	Msg       string      `json:"message,omitempty"`
 	Value     interface{} `json:"value,omitempty"`
 	Err       error       `json:"error,omitempty"`
@@ -68,8 +69,8 @@ const (
 	LogConnectSuccess               = "connect_success"
 	LogConnectFail                  = "connect_fail"
 	LogServerClosedConnection       = "server_closed_connection"
-	LogSetReadDeadlineFailed        = "set_read_deadline_failed"
-	LogSetWriteDeadlineFailed       = "set_write_deadline_failed"
+	LogSetReadDeadlineFailed        = "set_read_deadline_failed"  // maybe crash the program instead
+	LogSetWriteDeadlineFailed       = "set_write_deadline_failed" // maybe crash the program instead
 	LogReadMessage                  = "read_message"
 	LogReadMessageTimeout           = "read_message_timeout"
 	LogReadMessageNetError          = "read_message_net_error"
@@ -83,6 +84,14 @@ const (
 	LogClientCloseConnection        = "client_close_connection"
 	LogClientCloseConnectionSuccess = "client_close_connection_success"
 	LogClientCloseConnectionFailed  = "client_close_connection_failed"
+
+	StepConnect               = ""
+	StepSendText              = ""
+	StepReadMessage           = "read_message"
+	StepClientClose           = ""
+	StepExpectedServerClose   = "expected_server_close"
+	StepUnexpectedServerClose = "unexpected_server_close"
+	// Step
 )
 
 type TestResult struct {
@@ -150,7 +159,7 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 	}
 
 	wr := TestResult{ID: id, Test: wt, StartedAt: start}
-	addLog := func(kind string, log ...Log) {
+	addLog := func(kind string, action string, log ...Log) {
 		if len(log) > 1 {
 			panic("only one log item supported")
 		}
@@ -162,6 +171,7 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 		}
 
 		l.Kind = kind
+		l.Step = action
 		if l.CreatedAt == 0 {
 			l.CreatedAt = timestamp()
 		}
@@ -170,15 +180,15 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 	}
 
 	// Connect to the server
-	addLog(LogConnect)
+	addLog(LogConnect, StepConnect)
 	log.Printf("%s Connecting to %s", wr.ID, wt.URL)
 	c, _, err := dialer.Dial(wt.URL, nil)
 	if err != nil {
-		addLog(LogConnectFail, Log{Err: err})
+		addLog(LogConnectFail, StepConnect, Log{Err: err})
 		log.Println(wr.ID, "Cannot connect to websocket")
 		return wr, nil
 	}
-	addLog(LogConnectSuccess)
+	addLog(LogConnectSuccess, StepConnect)
 	wr.ConnectOK = true
 	c.SetCloseHandler(func(code int, text string) error {
 		log.Println(wr.ID, code, text)
@@ -187,58 +197,73 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 	log.Println(wr.ID, "connected")
 	defer c.Close()
 
-	if wt.SendTextMessage != "" {
+	handleWrite := func(ignoreTimeout bool, step string) error {
 		var err error
-		addLog(LogWriteMessage)
+		addLog(LogWriteMessage, step)
 		err = c.SetWriteDeadline(time.Now().Add(wt.MessageWriteTimeout.D()))
 		if err != nil {
-			addLog(LogSetWriteDeadlineFailed, Log{Err: err})
-			return wr, err
-		}
-
-		err = c.WriteMessage(websocket.TextMessage, []byte(wt.SendTextMessage))
-		if err != nil {
-			spew.Dump(err)
-			addLog(LogWriteMessageError, Log{Err: err})
-			if err, ok := err.(*websocket.CloseError); ok {
-				log.Println(wr.ID, err.Code)
-			}
-			log.Println(wr.ID, "Error while closing websocket", err)
-			return wr, nil
-
-		}
-		addLog(LogWriteMessageSuccess)
-	}
-
-	handleRead := func() error {
-		if err := c.SetReadDeadline(time.Now().Add(wt.MessageReadTimeout.D())); err != nil {
-			addLog(LogSetReadDeadlineFailed, Log{Err: err})
+			addLog(LogSetWriteDeadlineFailed, step, Log{Err: err})
 			return err
 		}
-		addLog(LogReadMessage)
+		err = c.WriteMessage(websocket.TextMessage, []byte(wt.SendTextMessage))
+		if err != nil {
+			switch err := err.(type) {
+			case *websocket.CloseError:
+				addLog(LogServerClosedConnection, step, Log{Err: err})
+				wr.ServerCloseCode = err.Code
+				log.Println(wr.ID, "connection closed by server", err.Code, err.Text)
+			case net.Error:
+				if err.Timeout() {
+					addLog(LogWriteMessageTimeout, step)
+					if ignoreTimeout {
+						return nil
+					}
+				} else {
+					addLog(LogWriteMessageNetError, step, Log{Err: err})
+				}
+			default:
+				addLog(LogWriteMessageError, step, Log{Err: err})
+				spew.Dump(err)
+			}
+			return err
+
+		}
+		addLog(LogWriteMessageSuccess, StepSendText)
+		return nil
+	}
+
+	handleRead := func(ignoreTimeout bool, step string) error {
+		if err := c.SetReadDeadline(time.Now().Add(wt.MessageReadTimeout.D())); err != nil {
+			addLog(LogSetReadDeadlineFailed, step, Log{Err: err})
+			return err
+		}
+		addLog(LogReadMessage, step)
 		msgType, data, err := c.ReadMessage()
 		if err != nil {
 			switch err := err.(type) {
 			case *websocket.CloseError:
-				addLog(LogServerClosedConnection, Log{Err: err})
-				log.Println(wr.ID, "connection closed by server", msgType, err.Code, err.Text)
+				addLog(LogServerClosedConnection, step, Log{Err: err})
 				wr.ServerCloseCode = err.Code
-				return nil
+				log.Println(wr.ID, "connection closed by server", msgType, err.Code, err.Text)
+				return err
 			case net.Error:
 				if err.Timeout() {
-					addLog(LogReadMessageTimeout)
-				} else {
-					addLog(LogReadMessageNetError, Log{Err: err})
+					addLog(LogReadMessageTimeout, step)
+					if ignoreTimeout {
+						return nil
+					}
+					return err
 				}
+				addLog(LogReadMessageNetError, step, Log{Err: err})
+				return err
 			default:
-				addLog(LogReadMessageError, Log{Err: err})
-				spew.Dump(err)
+				addLog(LogReadMessageError, step, Log{Err: err})
 				log.Println(wr.ID, err)
+				spew.Dump(err)
+				return err
 			}
 		} else {
-			addLog(LogReadMessageSuccess, Log{Value: msgType})
-			wr.MessagesReceived = wr.MessagesReceived + 1
-
+			addLog(LogReadMessageSuccess, step, Log{Value: msgType})
 			if msgType == websocket.BinaryMessage {
 				wr.Messages = append(wr.Messages, WebsocketMessage{
 					Type:       msgType,
@@ -254,27 +279,39 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 			}
 			log.Println(wr.ID, string(data))
 		}
+		wr.MessagesReceived = wr.MessagesReceived + 1
 		return nil
 	}
 
-	if wt.ExpectMessages < 1 {
-		if err := handleRead(); err != nil {
-			return wr, err
+	if wt.SendTextMessage != "" {
+		if err := handleWrite(false, StepSendText); err != nil {
+			return wr, nil
+		}
+	}
+
+	for wr.MessagesReceived < wt.ExpectMessages {
+		if err := handleRead(false, StepReadMessage); err != nil {
+			return wr, nil
+		}
+	}
+
+	if wt.ExpectServerClose != 0 {
+		if err := handleRead(false, StepExpectedServerClose); err != nil {
+			return wr, nil
 		}
 	} else {
-		for wr.MessagesReceived < wt.ExpectMessages {
-			if err := handleRead(); err != nil {
-				return wr, err
-			}
+		if err := handleRead(true, StepUnexpectedServerClose); err != nil {
+			return wr, nil
 		}
 	}
 
 	// close the connection
-	addLog(LogClientCloseConnection)
+	addLog(LogClientCloseConnection, StepClientClose)
 	log.Println(wr.ID, "Requesting connection closure")
 	err = c.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 	if err != nil {
-		addLog(LogClientCloseConnectionFailed, Log{Err: err})
+		spew.Dump(err)
+		addLog(LogClientCloseConnectionFailed, StepClientClose, Log{Err: err})
 		if err, ok := err.(*websocket.CloseError); ok {
 			log.Println(wr.ID, err.Code)
 		}
@@ -282,7 +319,7 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 		return wr, nil
 
 	}
-	addLog(LogClientCloseConnectionSuccess)
+	addLog(LogClientCloseConnectionSuccess, StepClientClose)
 	wr.CloseOK = true
 	return wr, nil
 

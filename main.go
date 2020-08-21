@@ -156,7 +156,9 @@ func main() {
 					}
 					log.Println(wr.IsSuccess(), string(data))
 				}
-				time.Sleep(time.Duration(wt.Sleep))
+				if flags.Runs == 0 || flags.Runs > 1 {
+					time.Sleep(time.Duration(wt.Sleep))
+				}
 				n++
 			}
 		}()
