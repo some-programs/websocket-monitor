@@ -210,10 +210,10 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 		addLog(LogWriteMessageSuccess)
 	}
 
-	if wt.ExpectMessages < 1 {
+	handleRead := func() error {
 		if err := c.SetReadDeadline(time.Now().Add(wt.MessageReadTimeout.D())); err != nil {
 			addLog(LogSetReadDeadlineFailed, Log{Err: err})
-			return wr, err
+			return err
 		}
 		addLog(LogReadMessage)
 		msgType, data, err := c.ReadMessage()
@@ -223,7 +223,7 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 				addLog(LogServerClosedConnection, Log{Err: err})
 				log.Println(wr.ID, "connection closed by server", msgType, err.Code, err.Text)
 				wr.ServerCloseCode = err.Code
-				return wr, nil
+				return nil
 			case net.Error:
 				if err.Timeout() {
 					addLog(LogReadMessageTimeout)
@@ -238,6 +238,7 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 		} else {
 			addLog(LogReadMessageSuccess, Log{Value: msgType})
 			wr.MessagesReceived = wr.MessagesReceived + 1
+
 			if msgType == websocket.BinaryMessage {
 				wr.Messages = append(wr.Messages, WebsocketMessage{
 					Type:       msgType,
@@ -253,51 +254,17 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 			}
 			log.Println(wr.ID, string(data))
 		}
+		return nil
+	}
+
+	if wt.ExpectMessages < 1 {
+		if err := handleRead(); err != nil {
+			return wr, err
+		}
 	} else {
 		for wr.MessagesReceived < wt.ExpectMessages {
-
-			if err := c.SetReadDeadline(time.Now().Add(wt.MessageReadTimeout.D())); err != nil {
-				addLog(LogSetReadDeadlineFailed, Log{Err: err})
+			if err := handleRead(); err != nil {
 				return wr, err
-			}
-			addLog(LogReadMessage)
-			msgType, data, err := c.ReadMessage()
-			if err != nil {
-
-				switch err := err.(type) {
-				case *websocket.CloseError:
-					addLog(LogServerClosedConnection, Log{Err: err})
-					log.Println(wr.ID, "connection closed by server", msgType, err.Code, err.Text)
-					wr.ServerCloseCode = err.Code
-					return wr, nil
-				case net.Error:
-					if err.Timeout() {
-						addLog(LogReadMessageTimeout)
-					} else {
-						addLog(LogReadMessageNetError, Log{Err: err})
-					}
-				default:
-					addLog(LogReadMessageError, Log{Err: err})
-					log.Println(wr.ID, err)
-				}
-			} else {
-				addLog(LogReadMessageSuccess, Log{Value: msgType})
-				log.Println(wr.ID, string(data))
-
-				if msgType == websocket.BinaryMessage {
-					wr.Messages = append(wr.Messages, WebsocketMessage{
-						Type:       msgType,
-						Body:       data,
-						ReceivedAt: timestamp(),
-					})
-				} else {
-					wr.Messages = append(wr.Messages, WebsocketMessage{
-						Type:       msgType,
-						Body:       string(data),
-						ReceivedAt: timestamp(),
-					})
-				}
-				wr.MessagesReceived = wr.MessagesReceived + 1
 			}
 		}
 	}
