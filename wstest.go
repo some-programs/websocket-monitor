@@ -283,11 +283,20 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 			} else {
 				addLog(LogReadMessageSuccess, Log{Value: msgType})
 				log.Println(wr.ID, string(data))
-				wr.Messages = append(wr.Messages, WebsocketMessage{
-					Type:       msgType,
-					Body:       data,
-					ReceivedAt: timestamp(),
-				})
+
+				if msgType == websocket.BinaryMessage {
+					wr.Messages = append(wr.Messages, WebsocketMessage{
+						Type:       msgType,
+						Body:       data,
+						ReceivedAt: timestamp(),
+					})
+				} else {
+					wr.Messages = append(wr.Messages, WebsocketMessage{
+						Type:       msgType,
+						Body:       string(data),
+						ReceivedAt: timestamp(),
+					})
+				}
 				wr.MessagesReceived = wr.MessagesReceived + 1
 			}
 		}
