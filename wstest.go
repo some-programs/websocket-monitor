@@ -49,14 +49,14 @@ type Test struct {
 
 // WebSocketMessage .
 type WebsocketMessage struct {
-	ReceivedAt Duration    `json:"received_at,omitempty"`
+	ReceivedAt DurationMS  `json:"received_at,omitempty"`
 	Type       int         `json:"type,omitempty"`
 	Body       interface{} `json:"body,omitempty"`
 }
 
 // Log .
 type Log struct {
-	CreatedAt Duration    `json:"created_at,omitempty"`
+	CreatedAt DurationMS  `json:"created_at,omitempty"`
 	Kind      string      `json:"kind,omitempty"`
 	Step      string      `json:"step,omitempty"`
 	Msg       string      `json:"message,omitempty"`
@@ -173,7 +173,7 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 		l.Kind = kind
 		l.Step = action
 		if l.CreatedAt == 0 {
-			l.CreatedAt = timestamp()
+			l.CreatedAt = timestamp().MS()
 		}
 
 		wr.Log = append(wr.Log, l)
@@ -268,13 +268,13 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 				wr.Messages = append(wr.Messages, WebsocketMessage{
 					Type:       msgType,
 					Body:       data,
-					ReceivedAt: timestamp(),
+					ReceivedAt: timestamp().MS(),
 				})
 			} else {
 				wr.Messages = append(wr.Messages, WebsocketMessage{
 					Type:       msgType,
 					Body:       string(data),
-					ReceivedAt: timestamp(),
+					ReceivedAt: timestamp().MS(),
 				})
 			}
 			log.Println(wr.ID, string(data))
