@@ -127,5 +127,5 @@ func (d DurationMS) MarshalYAML() (interface{}, error) {
 }
 
 func (d DurationMS) D() time.Duration {
-	return time.Duration(d) * time.Millisecond
+	return time.Duration(d)
 }

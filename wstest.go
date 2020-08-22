@@ -147,14 +147,11 @@ func (r TestResult) IsSuccess() bool {
 		if writeMessageFaliures[v.Kind] {
 			return false
 		}
-		if v.Step == StepReadMessage && readMessageFaliures[v.Kind] {
+		if (v.Step == StepReadMessage) && readMessageFaliures[v.Kind] {
 			return false
 		}
-
 	}
-
 	return true
-
 }
 
 func testWS(ctx context.Context, wt Test) (TestResult, error) {
