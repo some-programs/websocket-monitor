@@ -45,6 +45,9 @@ type Test struct {
 	SendTextMessage string `json:"send_text_message" yaml:"send_text_message"`
 
 	Sleep Duration `json:"sleep" yaml:"sleep"`
+
+	// Fail test if it takes longer this, (doesn't abort test, just for validation)
+	MaxDuration Duration `json:"max_duration" yaml:"max_duration"`
 }
 
 // WebSocketMessage .
@@ -94,6 +97,20 @@ const (
 	// Step
 )
 
+var (
+	writeMessageFaliures = map[string]bool{
+		LogWriteMessageTimeout:  true,
+		LogWriteMessageNetError: true,
+		LogWriteMessageError:    true,
+	}
+
+	readMessageFaliures = map[string]bool{
+		LogReadMessageTimeout:  true,
+		LogReadMessageNetError: true,
+		LogReadMessageError:    true,
+	}
+)
+
 type TestResult struct {
 	ID               string             `json:"id"`
 	Test             Test               `json:"test"` // The associated with the result
@@ -115,6 +132,25 @@ func (r TestResult) IsSuccess() bool {
 
 	if t.ExpectMessages != 0 && (r.MessagesReceived != t.ExpectMessages) {
 		return false
+	}
+	if t.MaxDuration != 0 {
+		if len(r.Log) == 0 {
+			return false
+		}
+		v := r.Log[len(r.Log)-1]
+		if v.CreatedAt.D() > t.MaxDuration.D() {
+			return false
+		}
+	}
+
+	for _, v := range r.Log {
+		if writeMessageFaliures[v.Kind] {
+			return false
+		}
+		if v.Step == StepReadMessage && readMessageFaliures[v.Kind] {
+			return false
+		}
+
 	}
 
 	return true

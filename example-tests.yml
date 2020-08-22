@@ -1,39 +1,49 @@
 - name: echo_success
+  url: wss://echo.websocket.org
   expect_messages: 1
   handshake_timeout: 1m
-  message_read_timeout: 5s
-  message_write_timeout: 5s
+  message_read_timeout: 2s
+  message_write_timeout: 2s
   send_text_message: hello
   sleep: 1s
+
+- name: echo_max_duration_fail
   url: wss://echo.websocket.org
+  expect_messages: 1
+  handshake_timeout: 1m
+  message_read_timeout: 2s
+  message_write_timeout: 2s
+  send_text_message: hello
+  sleep: 1s
+  max_duration: 1ns
 
 - name: echo-read-timeout_fail
+  url: wss://echo.websocket.org
   expect_messages: 1
   handshake_timeout: 1m
   message_read_timeout: 1ns
-  message_write_timeout: 5s
+  message_write_timeout: 2s
   send_text_message: hello
   sleep: 1s
-  url: wss://echo.websocket.org
 
 - name: echo-write-timeout_fail
+  url: wss://echo.websocket.org
   handshake_timeout: 1m
-  message_read_timeout: 5s
+  message_read_timeout: 2s
   message_write_timeout: 1ns
   send_text_message: hello
   sleep: 1s
-  url: wss://echo.websocket.org
 
 - name: org-read-expect_close_1001_fail
+  url: wss://echo.websocket.org
   expect_messages: 1
   expect_server_close: 1001
   handshake_timeout: 1m
   handshake_timeout: 1m
-  message_read_timeout: 5s
-  message_write_timeout: 5s
+  message_read_timeout: 2s
+  message_write_timeout: 2s
   send_text_message: hello
   sleep: 1s
-  url: wss://echo.websocket.org
 
 
 

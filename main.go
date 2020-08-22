@@ -108,8 +108,10 @@ func main() {
 	}
 
 	if flags.OutDir != "" {
-		if err := os.MkdirAll(flags.OutDir, 0700); err != nil {
-			log.Fatalln("could not create outdir directory", err)
+		for _, d := range []string{"success", "failed"} {
+			if err := os.MkdirAll(filepath.Join(flags.OutDir, d), 0700); err != nil {
+				log.Fatalln("could not create outdir directory", err)
+			}
 		}
 
 	}
@@ -143,8 +145,14 @@ func main() {
 						log.Fatal(err)
 					}
 					if flags.OutDir != "" {
+
+						category := "success"
+						if !wr.IsSuccess() {
+							category = "failed"
+						}
 						filename := filepath.Join(
 							flags.OutDir,
+							category,
 							fmt.Sprintf("%v__%v.json",
 								wr.Test.Name,
 								wr.StartedAt.Format("2006-01-02__150405.999999999"),
