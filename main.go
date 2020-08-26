@@ -131,13 +131,13 @@ func main() {
 						break loop
 					}
 				}
-				wr, err := testWS(context.Background(), wt)
+				wr, err := TestWS(context.Background(), wt)
 				if err != nil {
 					log.Println("failed ws test", err)
 				} else {
-					if !wr.IsSuccess() {
-						log.Println("TEST UNSUCCESSFUL")
-					}
+					// if !wr.IsSuccess() {
+					// 	log.Println("TEST UNSUCCESSFUL")
+					// }
 					// spew.Dump(wr)
 					// data, err := yaml.Marshal(&wr)
 					data, err := json.MarshalIndent(&wr, "", "  ")
@@ -161,8 +161,9 @@ func main() {
 						if err := ioutil.WriteFile(filename, data, 0600); err != nil {
 							log.Fatal(err)
 						}
+					} else {
+						log.Println(string(data))
 					}
-					log.Println(wr.IsSuccess(), string(data))
 				}
 				if flags.Runs == 0 || flags.Runs > 1 {
 					time.Sleep(time.Duration(wt.Sleep))

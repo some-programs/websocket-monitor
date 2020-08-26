@@ -121,37 +121,55 @@ type TestResult struct {
 	ServerCloseCode  int                `json:"server_close_code"`
 	CloseOK          bool               `json:"close_ok"`
 	Log              []Log              `json:"log"`
+	Err              error              `json:"error,omitempty"`
+	Ok               bool               `json:"ok"`
+	Status           string             `json:"status"`
 }
 
 func (r TestResult) IsSuccess() bool {
+	return r.GetStatus() == "ok"
+}
+func (r TestResult) GetStatus() string {
 	t := r.Test
 
 	if t.ExpectServerClose != 0 && (r.ServerCloseCode != t.ExpectServerClose) {
-		return false
+		return "expected_server_close"
 	}
 
 	if t.ExpectMessages != 0 && (r.MessagesReceived != t.ExpectMessages) {
-		return false
+		return "expected_number_messages"
 	}
 	if t.MaxDuration != 0 {
 		if len(r.Log) == 0 {
-			return false
+			return "max_duration_emtpy_log"
 		}
 		v := r.Log[len(r.Log)-1]
 		if v.CreatedAt.D() > t.MaxDuration.D() {
-			return false
+			return "max_duration_exceeded"
 		}
 	}
 
 	for _, v := range r.Log {
 		if writeMessageFaliures[v.Kind] {
-			return false
+			return "write_message_failure"
 		}
 		if (v.Step == StepReadMessage) && readMessageFaliures[v.Kind] {
-			return false
+			return "read_message_failure"
 		}
 	}
-	return true
+	return "ok"
+}
+
+func TestWS(ctx context.Context, wt Test) (TestResult, error) {
+	wr, err := testWS(ctx, wt)
+	if err != nil {
+		wr.Err = err
+		wr.Status = "test_error"
+	} else {
+		wr.Ok = wr.IsSuccess()
+		wr.Status = wr.GetStatus()
+	}
+	return wr, nil
 }
 
 func testWS(ctx context.Context, wt Test) (TestResult, error) {
@@ -214,7 +232,7 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 
 	// Connect to the server
 	addLog(LogConnect, StepConnect)
-	log.Printf("%s Connecting to %s", wr.ID, wt.URL)
+	// log.Printf("%s Connecting to %s", wr.ID, wt.URL)
 	c, _, err := dialer.Dial(wt.URL, nil)
 	if err != nil {
 		addLog(LogConnectFail, StepConnect, Log{Err: err})
@@ -227,7 +245,7 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 		log.Println(wr.ID, code, text)
 		return nil
 	})
-	log.Println(wr.ID, "connected")
+	// log.Println(wr.ID, "connected")
 	defer c.Close()
 
 	handleWrite := func(ignoreTimeout bool, step string) error {
@@ -310,7 +328,7 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 					ReceivedAt: timestamp().MS(),
 				})
 			}
-			log.Println(wr.ID, string(data))
+			// log.Println(wr.ID, string(data))
 		}
 		wr.MessagesReceived = wr.MessagesReceived + 1
 		return nil
