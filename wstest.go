@@ -123,51 +123,55 @@ type TestResult struct {
 	Log              []Log              `json:"log"`
 	Err              error              `json:"error,omitempty"`
 	Ok               bool               `json:"ok"`
-	Status           string             `json:"status"`
+	Failures         []string           `json:"failures,omitempty"`
 }
 
 func (r TestResult) IsSuccess() bool {
-	return r.GetStatus() == "ok"
+	rs := r.GetFailures()
+	return len(rs) == 0
 }
-func (r TestResult) GetStatus() string {
+func (r TestResult) GetFailures() []string {
 	t := r.Test
 
-	if t.ExpectServerClose != 0 && (r.ServerCloseCode != t.ExpectServerClose) {
-		return "expected_server_close"
-	}
-
-	if t.ExpectMessages != 0 && (r.MessagesReceived != t.ExpectMessages) {
-		return "expected_number_messages"
-	}
-	if t.MaxDuration != 0 {
-		if len(r.Log) == 0 {
-			return "max_duration_emtpy_log"
-		}
-		v := r.Log[len(r.Log)-1]
-		if v.CreatedAt.D() > t.MaxDuration.D() {
-			return "max_duration_exceeded"
-		}
-	}
+	var s []string
 
 	for _, v := range r.Log {
 		if writeMessageFaliures[v.Kind] {
-			return "write_message_failure"
+			s = append(s, "write_message_failure")
 		}
 		if (v.Step == StepReadMessage) && readMessageFaliures[v.Kind] {
-			return "read_message_failure"
+			s = append(s, "read_message_failure")
 		}
 	}
-	return "ok"
+
+	if t.ExpectServerClose != 0 && (r.ServerCloseCode != t.ExpectServerClose) {
+		s = append(s, "expected_server_close")
+	}
+
+	if t.ExpectMessages != 0 && (r.MessagesReceived != t.ExpectMessages) {
+		s = append(s, "expected_number_messages")
+	}
+	if t.MaxDuration != 0 {
+		if len(r.Log) == 0 {
+			s = append(s, "max_duration_emtpy_log")
+		}
+		v := r.Log[len(r.Log)-1]
+		if v.CreatedAt.D() > t.MaxDuration.D() {
+			s = append(s, "max_duration_exceeded")
+		}
+	}
+
+	return s
 }
 
 func TestWS(ctx context.Context, wt Test) (TestResult, error) {
 	wr, err := testWS(ctx, wt)
 	if err != nil {
 		wr.Err = err
-		wr.Status = "test_error"
+		wr.Failures = []string{"test_error"}
 	} else {
 		wr.Ok = wr.IsSuccess()
-		wr.Status = wr.GetStatus()
+		wr.Failures = wr.GetFailures()
 	}
 	return wr, nil
 }
