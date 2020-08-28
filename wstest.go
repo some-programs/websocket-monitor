@@ -52,9 +52,8 @@ type Test struct {
 
 // WebSocketMessage .
 type WebsocketMessage struct {
-	ReceivedAt DurationMS  `json:"received_at,omitempty"`
-	Type       int         `json:"type,omitempty"`
-	Body       interface{} `json:"body,omitempty"`
+	Type int         `json:"type,omitempty"`
+	Body interface{} `json:"body,omitempty"`
 }
 
 // Log .
@@ -112,18 +111,17 @@ var (
 )
 
 type TestResult struct {
-	ID               string             `json:"id"`
-	Test             Test               `json:"test"` // The associated with the result
-	StartedAt        time.Time          `json:"started_at"`
-	ConnectOK        bool               `json:"connect_ok"`        // true if connect succeeds
-	MessagesReceived int                `json:"messages_received"` // number of messages received
-	Messages         []WebsocketMessage `json:"messages"`
-	ServerCloseCode  int                `json:"server_close_code"`
-	CloseOK          bool               `json:"close_ok"`
-	Log              []Log              `json:"log"`
-	Err              error              `json:"error,omitempty"`
-	Ok               bool               `json:"ok"`
-	Failures         []string           `json:"failures,omitempty"`
+	ID               string    `json:"id"`
+	Test             Test      `json:"test"` // The associated with the result
+	StartedAt        time.Time `json:"started_at"`
+	ConnectOK        bool      `json:"connect_ok"`        // true if connect succeeds
+	MessagesReceived int       `json:"messages_received"` // number of messages received
+	ServerCloseCode  int       `json:"server_close_code"`
+	CloseOK          bool      `json:"close_ok"`
+	Log              []Log     `json:"log"`
+	Err              error     `json:"error,omitempty"`
+	Ok               bool      `json:"ok"`
+	Failures         []string  `json:"failures,omitempty"`
 }
 
 func (r TestResult) IsSuccess() bool {
@@ -318,20 +316,19 @@ func testWS(ctx context.Context, wt Test) (TestResult, error) {
 				return err
 			}
 		} else {
-			addLog(LogReadMessageSuccess, step, Log{Value: msgType})
+			var msg WebsocketMessage
 			if msgType == websocket.BinaryMessage {
-				wr.Messages = append(wr.Messages, WebsocketMessage{
-					Type:       msgType,
-					Body:       data,
-					ReceivedAt: timestamp().MS(),
-				})
+				msg = WebsocketMessage{
+					Type: msgType,
+					Body: data,
+				}
 			} else {
-				wr.Messages = append(wr.Messages, WebsocketMessage{
-					Type:       msgType,
-					Body:       string(data),
-					ReceivedAt: timestamp().MS(),
-				})
+				msg = WebsocketMessage{
+					Type: msgType,
+					Body: string(data),
+				}
 			}
+			addLog(LogReadMessageSuccess, step, Log{Value: msg})
 			// log.Println(wr.ID, string(data))
 		}
 		wr.MessagesReceived = wr.MessagesReceived + 1
